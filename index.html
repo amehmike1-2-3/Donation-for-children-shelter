@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-  <script src="https://js.paystack.co/v1/inline.js"></script>
+
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -706,23 +706,27 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
   let selectedAmount = 1000;
+  let finalAmount = 1000;
 
   function selectAmount(btn, val) {
     document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     selectedAmount = val;
+    finalAmount = val;
     document.getElementById('customAmt').value = '';
   }
 
   function clearActive() {
     document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-    selectedAmount = parseInt(document.getElementById('customAmt').value) || 0;
+    const v = parseInt(document.getElementById('customAmt').value);
+    selectedAmount = v || 0;
+    finalAmount = selectedAmount;
   }
 
   function openModal() {
-    const custom = document.getElementById('customAmt').value;
-    const amt = custom ? parseInt(custom) : selectedAmount;
-    document.getElementById('modalAmt').textContent = '₦' + amt.toLocaleString();
+    const custom = parseInt(document.getElementById('customAmt').value);
+    finalAmount = custom > 0 ? custom : (selectedAmount > 0 ? selectedAmount : 1000);
+    document.getElementById('modalAmt').textContent = '₦' + finalAmount.toLocaleString();
     document.getElementById('donateModal').classList.add('open');
   }
 
@@ -733,18 +737,17 @@
   function submitDonation() {
     const email = document.querySelector('#donateModal input[type=email]').value.trim();
     const name  = document.querySelector('#donateModal input[type=text]').value.trim();
-    const custom = document.getElementById('customAmt').value;
-    const amt = custom ? parseInt(custom) : selectedAmount;
 
-    if (!email) { alert('Please enter your email address.'); return; }
     if (!name)  { alert('Please enter your full name.'); return; }
-    if (!amt || amt < 100) { alert('Minimum donation is ₦100.'); return; }
+    if (!email) { alert('Please enter your email address.'); return; }
+    if (!finalAmount || finalAmount < 100) { alert('Minimum donation is ₦100.'); return; }
 
-    const handler = PaystackPop.setup({
+    const config = {
       key: 'pk_live_aaf3faacd1ff2cb720a5f1afaf79112c3fc322ca',
       email: email,
-      amount: amt * 100,
+      amount: finalAmount * 100,
       currency: 'NGN',
+      ref: 'SH_' + Date.now(),
       metadata: { custom_fields: [{ display_name: 'Donor Name', variable_name: 'donor_name', value: name }] },
       callback: function(response) {
         closeModal();
@@ -752,8 +755,22 @@
         setTimeout(() => document.getElementById('successBanner').style.display = 'none', 6000);
       },
       onClose: function() {}
-    });
-    handler.openIframe();
+    };
+
+    if (typeof PaystackPop !== 'undefined') {
+      PaystackPop.setup(config).openIframe();
+    } else {
+      // Fallback: redirect to Paystack hosted checkout
+      const params = new URLSearchParams({
+        key: config.key,
+        email: config.email,
+        amount: config.amount,
+        currency: 'NGN',
+        ref: config.ref,
+        callback_url: window.location.href
+      });
+      window.open('https://checkout.paystack.com/?' + params.toString(), '_blank');
+    }
   }
 
   // Close modal on backdrop click
@@ -771,4 +788,13 @@
     });
   }, { threshold: 0.1 });
 
-  document.querySelectorAll('.impact-card, .test-card, .g-img, .mission-item').forEach(el =>
+  document.querySelectorAll('.impact-card, .test-card, .g-img, .mission-item').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(24px)';
+    el.style.transition = 'opacity .6s ease, transform .6s ease';
+    observer.observe(el);
+  });
+</script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
+</body>
+</html>
